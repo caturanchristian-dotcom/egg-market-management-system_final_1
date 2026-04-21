@@ -200,7 +200,7 @@ async function startServer() {
     await db.execute('INSERT IGNORE INTO categories (name) VALUES (?)', ['Organic Eggs']);
 
     const chickenCategory = await db.queryOne('SELECT id FROM categories WHERE name = ?', ['Chicken Eggs']);
-    const organicCategory = await db.queryOne('SELECT id FROM categories WHERE name = ? { id FROM categories WHERE name = ?', ['Organic Eggs']);
+    const organicCategory = await db.queryOne('SELECT id FROM categories WHERE name = ?', ['Organic Eggs']);
 
     // Add initial product listings
     if (chickenCategory) {
