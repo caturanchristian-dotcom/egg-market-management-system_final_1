@@ -18,8 +18,20 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // Treat DECIMAL columns as numbers instead of strings (important for price/total fields)
   decimalNumbers: true
+});
+
+// Trace connection events for debugging
+pool.on('acquire', (connection) => {
+  console.log('Database connection acquired');
+});
+
+pool.on('connection', (connection) => {
+  console.log('New database connection established');
+});
+
+pool.on('error', (err) => {
+  console.error('Database pool error:', err);
 });
 
 /**

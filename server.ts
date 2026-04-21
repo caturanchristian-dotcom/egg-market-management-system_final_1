@@ -27,6 +27,20 @@ const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
  * Initializes database tables, seeds initial data, and sets up express middleware/routes
  */
 async function startServer() {
+  console.log('Starting application server...');
+  
+  // Test database connection before proceeding
+  try {
+    console.log('Connecting to database...');
+    // Simple query to verify connection
+    await db.query('SELECT 1');
+    console.log('Database connection successful.');
+  } catch (err) {
+    console.error('CRITICAL: Database connection failed!');
+    console.error('Error details:', err);
+    process.exit(1);
+  }
+
   // Initialize Core Database Tables
   await db.exec(`
     -- User profiles and account information
@@ -1256,4 +1270,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error('FAILED TO START SERVER:', err);
+  process.exit(1);
+});
