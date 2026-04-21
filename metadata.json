@@ -1,0 +1,5 @@
+{
+  "name": "Egg Market System",
+  "description": "A digital marketplace connecting egg farmers directly with consumers for fresh, transparent, and efficient trade.",
+  "requestFramePermissions": ["geolocation"]
+}
