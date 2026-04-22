@@ -4,5 +4,8 @@
 1. Install dependencies:
    `npm install`
 
-3. Run the app:
+2. Run the app:
    `npm run dev`
+
+3. go to this site:
+   `http://localhost:3000`
