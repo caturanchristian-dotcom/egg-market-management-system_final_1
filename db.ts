@@ -9,11 +9,11 @@ dotenv.config();
  * Uses MySQL for data persistence
  */
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'eggmarket',
-  port: parseInt(process.env.DB_PORT || '3306'),
+  host: process.env.DB_HOST || 'mysql-nodejs-render-aiven-lab-mysql-lab4-caturan.a.aivencloud.com',
+  user: process.env.DB_USER || 'avnadmin',
+  password: process.env.DB_PASSWORD || 'AVNS_Fvc1IPNg8zIOpLPQCeO',
+  database: process.env.DB_NAME || 'defaultdb',
+  port: parseInt(process.env.DB_PORT || '21297'),
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
   connectionLimit: 10,
