@@ -22,14 +22,6 @@ const pool = mysql.createPool({
 });
 
 // Trace connection events for debugging
-pool.on('acquire', (connection) => {
-  console.log('Database connection acquired');
-});
-
-pool.on('connection', (connection) => {
-  console.log('New database connection established');
-});
-
 pool.on('error', (err) => {
   console.error('Database pool error:', err);
 });
