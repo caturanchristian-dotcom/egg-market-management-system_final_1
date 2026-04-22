@@ -22,7 +22,7 @@ const pool = mysql.createPool({
 });
 
 // Trace connection events for debugging
-pool.on('error', (err) => {
+(pool as any).on('error', (err: any) => {
   console.error('Database pool error:', err);
 });
 
