@@ -1,7 +1,7 @@
 // Import necessary modules for the backend server
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import db from './db';
+import db from './db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
