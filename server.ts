@@ -619,6 +619,20 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  /**
+   * DELETE /api/messages/:userId/:otherId
+   * Deletes the entire conversation history between two users
+   */
+  app.delete('/api/messages/:userId/:otherId', async (req, res) => {
+    const { userId, otherId } = req.params;
+    await db.execute(`
+      DELETE FROM messages 
+      WHERE (sender_id = ? AND receiver_id = ?) 
+         OR (sender_id = ? AND receiver_id = ?)
+    `, [userId, otherId, otherId, userId]);
+    res.json({ success: true });
+  });
+
   // --- Admin Category Management ---
 
   /**

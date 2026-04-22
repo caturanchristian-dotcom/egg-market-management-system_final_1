@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Conversation, Message } from '../types';
-import { Send, User as UserIcon, Search, MessageSquare, ArrowLeft, Loader2, Clock } from 'lucide-react';
+import { Send, User as UserIcon, Search, MessageSquare, ArrowLeft, Loader2, Clock, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 
@@ -120,6 +120,27 @@ export default function MessagingSystem({ initialChatRole, initialUserId, initia
       fetchConversations();
     } catch (err) {
       console.error('Error marking as read:', err);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!user || !selectedChat) return;
+    
+    if (!window.confirm(`Are you sure you want to delete your conversation with ${selectedChat.other_user_name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/messages/${user.id}/${selectedChat.other_user_id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setSelectedChat(null);
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
     }
   };
 
@@ -273,6 +294,13 @@ export default function MessagingSystem({ initialChatRole, initialUserId, initia
                     <span className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider">{selectedChat.other_user_role}</span>
                   </div>
                 </div>
+                <button 
+                  onClick={handleDeleteConversation}
+                  className="p-2 hover:bg-red-50 text-emerald-400 hover:text-red-500 rounded-xl transition-colors shrink-0"
+                  title="Delete Conversation"
+                >
+                  <Trash2 size={20} />
+                </button>
               </div>
 
               {/* Messages Area */}
