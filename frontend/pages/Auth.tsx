@@ -39,15 +39,7 @@ export default function AuthPage() {
   useEffect(() => {
     const handleOAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      // Allow local development, AI Studio previews, and common deployment platforms
-      const isAllowedOrigin = 
-        origin.includes('localhost') || 
-        origin.endsWith('.run.app') || 
-        origin.endsWith('.aistudio-preview.app') ||
-        origin.endsWith('.render.com') ||
-        origin.endsWith('.onrender.com');
-
-      if (!isAllowedOrigin) {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
         return;
       }
       
