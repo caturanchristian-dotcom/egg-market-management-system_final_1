@@ -250,12 +250,11 @@ async function startServer() {
       await db.execute('INSERT INTO products (farmer_id, name, description, price, stock, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)', 
         [2, 'Organic Brown Eggs', 'Certified organic brown eggs rich in Omega-3.', 15.00, 50, organicCategory.id, 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&q=80&w=400']);
     }
-  }
-
-    } catch (err) {
-      console.error('Migration failed:', err);
     }
-  };
+  } catch (err) {
+    console.error('Migration failed:', err);
+  }
+};
 
   // Initialize Express App
   const app = express();
