@@ -18,7 +18,9 @@ import {
   Truck,
   PieChart as PieChartIcon,
   Calendar,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -84,12 +86,8 @@ export default function FarmerDashboard() {
     name: '',
     egg_type: '',
     description: '',
-    price: 0,
     price_per_tray: 0,
-    price_per_dozen: 0,
-    stock: 0,
     stock_tray: 0,
-    stock_dozen: 0,
     category_id: 1,
     image_url: ''
   });
@@ -101,12 +99,8 @@ export default function FarmerDashboard() {
         name: '', 
         egg_type: '',
         description: '', 
-        price: 0, 
         price_per_tray: 0,
-        price_per_dozen: 0,
-        stock: 0, 
         stock_tray: 0,
-        stock_dozen: 0,
         category_id: categories[0]?.id || 1, 
         image_url: '' 
       });
@@ -136,6 +130,8 @@ export default function FarmerDashboard() {
 
   const [salesStats, setSalesStats] = useState<any[]>([]);
   const [dailySales, setDailySales] = useState<any[]>([]);
+  const [verificationFile, setVerificationFile] = useState<File | null>(null);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
 
   /**
    * Main data coordination effect
@@ -258,12 +254,8 @@ export default function FarmerDashboard() {
           name: '', 
           egg_type: '',
           description: '', 
-          price: 0, 
           price_per_tray: 0,
-          price_per_dozen: 0,
-          stock: 0, 
           stock_tray: 0,
-          stock_dozen: 0,
           category_id: 1, 
           image_url: '' 
         });
@@ -334,7 +326,7 @@ export default function FarmerDashboard() {
   const stats = {
     totalSales: orders.reduce((sum, o) => sum + (o.status === 'delivered' ? Number(o.total_amount) : 0), 0),
     activeOrders: orders.filter(o => o.status === 'pending' || o.status === 'processing').length,
-    lowStock: products.filter(p => p.stock < 10).length,
+    lowStock: products.filter(p => p.stock_tray < 5).length,
     totalProducts: products.length
   };
 
@@ -426,13 +418,13 @@ export default function FarmerDashboard() {
             <h3 className="font-bold text-emerald-900 text-sm md:text-base">Inventory Alerts</h3>
           </div>
           <div className="p-4 md:p-6 space-y-3 md:space-y-4">
-            {products.filter(p => p.stock < 10).map(product => (
+            {products.filter(p => p.stock_tray < 5).map(product => (
               <div key={product.id} className="flex items-center justify-between p-3 md:p-4 bg-orange-50 rounded-xl md:rounded-2xl border border-orange-100">
                 <div className="flex items-center gap-2 md:gap-3">
                   <img src={product.image_url || EGG_PLACEHOLDER} className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl object-cover" referrerPolicy="no-referrer" />
                   <div>
                     <p className="font-bold text-emerald-900 text-xs md:text-sm">{product.name}</p>
-                    <p className="text-[10px] md:text-xs text-orange-600 font-medium">{product.stock} units remaining</p>
+                    <p className="text-[10px] md:text-xs text-orange-600 font-medium">{product.stock_tray} trays remaining</p>
                   </div>
                 </div>
                 <button 
@@ -442,12 +434,8 @@ export default function FarmerDashboard() {
                       name: product.name,
                       egg_type: product.egg_type || '',
                       description: product.description,
-                      price: product.price,
                       price_per_tray: product.price_per_tray || 0,
-                      price_per_dozen: product.price_per_dozen || 0,
-                      stock: product.stock,
                       stock_tray: product.stock_tray || 0,
-                      stock_dozen: product.stock_dozen || 0,
                       category_id: product.category_id,
                       image_url: product.image_url
                     });
@@ -459,7 +447,7 @@ export default function FarmerDashboard() {
                 </button>
               </div>
             ))}
-            {products.filter(p => p.stock < 10).length === 0 && (
+            {products.filter(p => p.stock_tray < 5).length === 0 && (
               <div className="text-center py-12">
                 <CheckCircle2 className="mx-auto text-emerald-400 mb-2" size={32} />
                 <p className="text-emerald-500 text-sm">All inventory levels are healthy.</p>
@@ -467,6 +455,184 @@ export default function FarmerDashboard() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+
+  const renderVerification = () => (
+    <div className="space-y-6 max-w-2xl">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-2xl font-bold text-emerald-900">Account Verification</h2>
+        <p className="text-emerald-600 text-sm">
+          Upload your identification or business documents to become a verified farmer on EggMarket.
+          Verified farmers gain higher visibility and trust from customers.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-emerald-100 p-8 shadow-sm">
+        <div className="flex items-center gap-4 mb-8 pb-6 border-b border-emerald-50">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+            user?.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-600' :
+            user?.verification_status === 'pending' ? 'bg-blue-100 text-blue-600' :
+            user?.verification_status === 'rejected' ? 'bg-red-100 text-red-600' :
+            'bg-gray-100 text-gray-500'
+          }`}>
+            <ShieldCheck size={32} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Current Status</p>
+            <h3 className="text-xl font-bold text-emerald-900 capitalize">
+              {user?.verification_status || 'Unverified'}
+            </h3>
+          </div>
+        </div>
+
+        {user?.verification_status === 'verified' ? (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
+            <CheckCircle2 className="mx-auto text-emerald-600 mb-2" size={48} />
+            <h4 className="text-lg font-bold text-emerald-900">You are Verified!</h4>
+            <p className="text-emerald-700 text-sm mt-1">Your account is fully verified. Customers can see the verification checkmark on your profile.</p>
+          </div>
+        ) : user?.verification_status === 'pending' ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
+            <Clock className="mx-auto text-blue-600 mb-2" size={48} />
+            <h4 className="text-lg font-bold text-blue-900">Verification Pending</h4>
+            <p className="text-blue-700 text-sm mt-1">We have received your documents and are currently reviewing them. This usually takes 1-2 business days.</p>
+            {user.verification_document && (
+              <div className="mt-4 pt-4 border-t border-blue-100">
+                <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Submitted Document</p>
+                <a 
+                  href={user.verification_document} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline"
+                >
+                  <FileText size={16} /> View Submission
+                </a>
+              </div>
+            )}
+          </div>
+        ) : (
+          <form className="space-y-6" onSubmit={async (e) => {
+            e.preventDefault();
+            if (!verificationFile) {
+              showNotify('Please select a document to upload', 'error');
+              return;
+            }
+            
+            setSubmittingVerification(true);
+            const formData = new FormData();
+            formData.append('document', verificationFile);
+            formData.append('userId', String(user?.id));
+
+            try {
+              const res = await fetch('/api/farmer/verify', {
+                method: 'POST',
+                body: formData
+              });
+              
+              if (res.ok) {
+                showNotify('Verification document submitted successfully!', 'success');
+                setVerificationFile(null);
+                // Refresh user data (this will depend on how AuthContext is implemented)
+                window.location.reload(); 
+              } else {
+                const data = await res.json();
+                showNotify(data.error || 'Failed to submit document', 'error');
+              }
+            } catch (err) {
+              showNotify('An error occurred during upload', 'error');
+            } finally {
+              setSubmittingVerification(false);
+            }
+          }}>
+            {user?.verification_status === 'rejected' && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <h5 className="text-sm font-bold text-red-900">Previous Request Rejected</h5>
+                  <p className="text-xs text-red-700 mt-0.5">Please ensure your document is clear, valid, and fully legible before re-submitting.</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Select Document</label>
+              <div 
+                className={`border-2 border-dashed rounded-3xl p-8 text-center transition-all cursor-pointer ${
+                  verificationFile ? 'border-emerald-500 bg-emerald-50/50' : 'border-emerald-200 hover:border-emerald-400 bg-emerald-50/20'
+                }`}
+                onClick={() => document.getElementById('verification-upload')?.click()}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                    verificationFile ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'
+                  }`}>
+                    {verificationFile ? <CheckCircle2 size={24} /> : <Upload size={24} />}
+                  </div>
+                  {verificationFile ? (
+                    <div>
+                      <p className="font-bold text-emerald-900 text-sm">{verificationFile.name}</p>
+                      <p className="text-[10px] text-emerald-500 uppercase mt-0.5">{(verificationFile.size / 1024 / 1024).toFixed(2)} MB • Click to change</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-bold text-emerald-900 text-sm">Drop document here or click to browse</p>
+                      <p className="text-[10px] text-emerald-500 uppercase mt-0.5">PDF, JPG, or PNG (MAX. 5MB)</p>
+                    </div>
+                  )}
+                </div>
+                <input 
+                  id="verification-upload"
+                  type="file" 
+                  className="hidden" 
+                  accept=".pdf,image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        showNotify('File too large (max 5MB)', 'error');
+                        return;
+                      }
+                      setVerificationFile(file);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-emerald-50/50 p-4 rounded-2xl space-y-2 border border-emerald-100">
+              <h5 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Accepted Documents:</h5>
+              <ul className="text-xs text-emerald-600 space-y-1 ml-4 list-disc">
+                <li>Government Issued ID (Passport, Driver's License)</li>
+                <li>Business Registration Certificate / Barangay Permit</li>
+                <li>Agricultural association membership proof</li>
+              </ul>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={!verificationFile || submittingVerification}
+              className={`w-full py-4 rounded-2xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
+                !verificationFile || submittingVerification
+                  ? 'bg-emerald-100 text-emerald-300 cursor-not-allowed shadow-none'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100 active:scale-[0.98]'
+              }`}
+            >
+              {submittingVerification ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={20} />
+                  Submit for Verification
+                </>
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -482,12 +648,8 @@ export default function FarmerDashboard() {
               name: '', 
               egg_type: '',
               description: '', 
-              price: 0, 
               price_per_tray: 0,
-              price_per_dozen: 0,
-              stock: 0, 
               stock_tray: 0,
-              stock_dozen: 0,
               category_id: 1, 
               image_url: '' 
             });
@@ -512,12 +674,8 @@ export default function FarmerDashboard() {
                       name: product.name,
                       egg_type: product.egg_type || '',
                       description: product.description,
-                      price: product.price,
                       price_per_tray: product.price_per_tray || 0,
-                      price_per_dozen: product.price_per_dozen || 0,
-                      stock: product.stock,
                       stock_tray: product.stock_tray || 0,
-                      stock_dozen: product.stock_dozen || 0,
                       category_id: product.category_id,
                       image_url: product.image_url
                     });
@@ -538,7 +696,7 @@ export default function FarmerDashboard() {
             <div className="p-3 md:p-5">
               <div className="flex justify-between items-start mb-1 md:mb-2">
                 <h3 className="font-bold text-emerald-900 text-sm md:text-base">{product.name}</h3>
-                <span className="text-emerald-600 font-bold text-xs md:text-sm">₱{Number(product.price).toFixed(2)}</span>
+                <span className="text-emerald-600 font-bold text-xs md:text-sm">₱{Number(product.price_per_tray).toFixed(2)}/tray</span>
               </div>
               
               {product.egg_type && (
@@ -547,36 +705,13 @@ export default function FarmerDashboard() {
                 </p>
               )}
 
-              <div className="flex flex-wrap gap-1.5 md:gap-2 mb-3 md:mb-4">
-                {product.price_per_dozen && Number(product.price_per_dozen) > 0 && (
-                  <span className="bg-emerald-50 text-emerald-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg border border-emerald-100">
-                    ₱{Number(product.price_per_dozen).toFixed(2)} / doz
-                  </span>
-                )}
-                {product.price_per_tray && Number(product.price_per_tray) > 0 && (
-                  <span className="bg-emerald-50 text-emerald-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg border border-emerald-100">
-                    ₱{Number(product.price_per_tray).toFixed(2)} / tray
-                  </span>
-                )}
-              </div>
-
               <p className="text-emerald-500 text-xs mb-4 line-clamp-2">{product.description}</p>
               <div className="flex items-center justify-between pt-4 border-t border-emerald-50">
                 <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider">{product.category_name}</span>
                 <div className="flex flex-col items-end gap-1">
-                  <span className={`text-xs font-bold ${product.stock < 10 ? 'text-orange-500' : 'text-emerald-700'}`}>
-                    Stock: {product.stock} units
+                  <span className={`text-xs font-bold ${product.stock_tray < 5 ? 'text-orange-500' : 'text-emerald-700'}`}>
+                    Stock: {product.stock_tray} trays
                   </span>
-                  {product.stock_dozen !== undefined && product.stock_dozen > 0 && (
-                    <span className="text-[10px] font-bold text-emerald-600">
-                      {product.stock_dozen} dozens
-                    </span>
-                  )}
-                  {product.stock_tray !== undefined && product.stock_tray > 0 && (
-                    <span className="text-[10px] font-bold text-emerald-600">
-                      {product.stock_tray} trays
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -832,38 +967,22 @@ export default function FarmerDashboard() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-emerald-600 font-bold">₱{product.price.toFixed(2)}/unit</span>
-                    {product.price_per_dozen && product.price_per_dozen > 0 && (
-                      <span className="text-[10px] text-emerald-400">₱{product.price_per_dozen.toFixed(2)}/doz</span>
-                    )}
-                    {product.price_per_tray && product.price_per_tray > 0 && (
-                      <span className="text-[10px] text-emerald-400">₱{product.price_per_tray.toFixed(2)}/tray</span>
-                    )}
+                    <span className="text-xs text-emerald-600 font-bold">₱{product.price_per_tray.toFixed(2)}/tray</span>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-emerald-500">{product.category_name}</td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    <span className={`font-bold text-sm ${product.stock < 10 ? 'text-orange-600' : 'text-emerald-900'}`}>
-                      {product.stock} units
+                    <span className={`font-bold text-sm ${product.stock_tray < 5 ? 'text-orange-600' : 'text-emerald-900'}`}>
+                      {product.stock_tray} trays
                     </span>
-                    {product.stock_dozen !== undefined && product.stock_dozen > 0 && (
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        {product.stock_dozen} dozens
-                      </span>
-                    )}
-                    {product.stock_tray !== undefined && product.stock_tray > 0 && (
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        {product.stock_tray} trays
-                      </span>
-                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
                   <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
-                    product.stock < 10 ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'
+                    product.stock_tray < 5 ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'
                   }`}>
-                    {product.stock < 10 ? 'Low Stock' : 'In Stock'}
+                    {product.stock_tray < 5 ? 'Low Stock' : 'In Stock'}
                   </span>
                 </td>
                 <td className="px-6 py-4">
@@ -874,12 +993,8 @@ export default function FarmerDashboard() {
                         name: product.name,
                         egg_type: product.egg_type || '',
                         description: product.description,
-                        price: product.price,
                         price_per_tray: product.price_per_tray || 0,
-                        price_per_dozen: product.price_per_dozen || 0,
-                        stock: product.stock,
                         stock_tray: product.stock_tray || 0,
-                        stock_dozen: product.stock_dozen || 0,
                         category_id: product.category_id,
                         image_url: product.image_url
                       });
@@ -906,9 +1021,9 @@ export default function FarmerDashboard() {
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-emerald-900">{product.name}</h3>
                   <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
-                    product.stock < 10 ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'
+                    product.stock_tray < 5 ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'
                   }`}>
-                    {product.stock < 10 ? 'Low' : 'OK'}
+                    {product.stock_tray < 5 ? 'Low' : 'OK'}
                   </span>
                 </div>
                 <p className="text-[10px] text-emerald-400 uppercase font-bold tracking-widest">{product.category_name}</p>
@@ -919,25 +1034,13 @@ export default function FarmerDashboard() {
               <div>
                 <p className="text-[10px] text-emerald-500 uppercase font-bold mb-1">Stock Levels</p>
                 <div className="space-y-1">
-                  <p className={`text-sm font-bold ${product.stock < 10 ? 'text-orange-600' : 'text-emerald-900'}`}>{product.stock} Units</p>
-                  {product.stock_dozen !== undefined && product.stock_dozen > 0 && (
-                    <p className="text-xs text-emerald-600">{product.stock_dozen} Dozens</p>
-                  )}
-                  {product.stock_tray !== undefined && product.stock_tray > 0 && (
-                    <p className="text-xs text-emerald-600">{product.stock_tray} Trays</p>
-                  )}
+                  <p className={`text-sm font-bold ${product.stock_tray < 5 ? 'text-orange-600' : 'text-emerald-900'}`}>{product.stock_tray} Trays</p>
                 </div>
               </div>
               <div>
                 <p className="text-[10px] text-emerald-500 uppercase font-bold mb-1">Pricing</p>
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-emerald-900">₱{product.price.toFixed(2)}/u</p>
-                  {product.price_per_dozen && product.price_per_dozen > 0 && (
-                    <p className="text-xs text-emerald-600">₱{product.price_per_dozen.toFixed(2)}/d</p>
-                  )}
-                  {product.price_per_tray && product.price_per_tray > 0 && (
-                    <p className="text-xs text-emerald-600">₱{product.price_per_tray.toFixed(2)}/t</p>
-                  )}
+                  <p className="text-sm font-bold text-emerald-900">₱{product.price_per_tray.toFixed(2)}/t</p>
                 </div>
               </div>
             </div>
@@ -949,12 +1052,8 @@ export default function FarmerDashboard() {
                   name: product.name,
                   egg_type: product.egg_type || '',
                   description: product.description,
-                  price: product.price,
                   price_per_tray: product.price_per_tray || 0,
-                  price_per_dozen: product.price_per_dozen || 0,
-                  stock: product.stock,
                   stock_tray: product.stock_tray || 0,
-                  stock_dozen: product.stock_dozen || 0,
                   category_id: product.category_id,
                   image_url: product.image_url
                 });
@@ -1144,6 +1243,49 @@ export default function FarmerDashboard() {
     );
   };
 
+  if (user?.status === 'pending') {
+    return (
+      <DashboardLayout activeTab="pending" setActiveTab={setActiveTab}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+          <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-6 animate-pulse">
+            <Clock size={48} />
+          </div>
+          <h1 className="text-3xl font-bold text-emerald-900 mb-4 font-serif">Account Pending Approval</h1>
+          <p className="text-emerald-600 max-w-md mx-auto mb-8">
+            Welcome, {user?.name}! Your farmer account has been registered successfully. 
+            For security and quality assurance, our administrators need to approve your account 
+            before you can start listing products and receiving orders.
+          </p>
+          <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm max-w-sm w-full space-y-4">
+            <div className="flex items-start gap-3 text-left">
+              <CheckCircle2 className="text-emerald-500 shrink-0 mt-1" size={18} />
+              <p className="text-sm text-emerald-800">Registration received</p>
+            </div>
+            <div className="flex items-start gap-3 text-left">
+              <div className="w-[18px] h-[18px] rounded-full border-2 border-amber-500 flex items-center justify-center shrink-0 mt-1">
+                <div className="w-2 h-2 bg-amber-500 rounded-full" />
+              </div>
+              <p className="text-sm font-bold text-amber-600">Admin review in progress</p>
+            </div>
+            <div className="flex items-start gap-3 text-left opacity-30">
+              <div className="w-18 h-18 rounded-full border-2 border-gray-300 shrink-0 mt-1" />
+              <p className="text-sm text-gray-500">Access to farmer tools</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => navigate('/')}
+            className="mt-10 px-8 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+          >
+            Back to Marketplace
+          </button>
+          <p className="text-xs text-emerald-400 mt-6 italic">
+            This process usually takes 24-48 hours. You will receive a notification once your account is activated.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab}>
       {activeTab === 'dashboard' && renderDashboard()}
@@ -1151,6 +1293,7 @@ export default function FarmerDashboard() {
       {activeTab === 'orders' && renderOrders()}
       {activeTab === 'inventory' && renderInventory()}
       {activeTab === 'sales' && renderSales()}
+      {activeTab === 'verification' && renderVerification()}
       {activeTab === 'site-settings' && (
         <div className="bg-white rounded-3xl border border-emerald-100 p-6 md:p-8 max-w-2xl">
           <h2 className="text-2xl font-bold text-emerald-900 mb-6">Manage Contact Us & Site Info</h2>
@@ -1320,11 +1463,11 @@ export default function FarmerDashboard() {
                               {item.egg_type && (
                                 <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Type: {item.egg_type}</p>
                               )}
-                              <p className="text-sm text-emerald-500">{item.quantity} {item.unit || 'unit'}(s) x ₱{item.price.toFixed(2)}</p>
+                              <p className="text-sm text-emerald-500">{item.quantity} tray(s) x ₱{item.price_per_tray.toFixed(2)}</p>
                             </div>
                           </div>
                         </div>
-                        <p className="font-bold text-emerald-900">₱{(item.quantity * item.price).toFixed(2)}</p>
+                        <p className="font-bold text-emerald-900">₱{(item.quantity * item.price_per_tray).toFixed(2)}</p>
                       </div>
                     ))}
                   </div>
@@ -1481,27 +1624,9 @@ export default function FarmerDashboard() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Price per Unit (₱)</label>
-                  <input 
-                    type="number" step="0.01" required
-                    value={formData.price}
-                    onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Stock (Units)</label>
-                  <input 
-                    type="number" required
-                    value={formData.stock}
-                    onChange={e => setFormData({ ...formData, stock: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
                   <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Price per Tray (₱)</label>
                   <input 
-                    type="number" step="0.01"
+                    type="number" step="0.01" required
                     value={formData.price_per_tray}
                     onChange={e => setFormData({ ...formData, price_per_tray: Number(e.target.value) })}
                     className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
@@ -1510,27 +1635,9 @@ export default function FarmerDashboard() {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Stock (Trays)</label>
                   <input 
-                    type="number"
+                    type="number" required
                     value={formData.stock_tray}
                     onChange={e => setFormData({ ...formData, stock_tray: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Price per Dozen (₱)</label>
-                  <input 
-                    type="number" step="0.01"
-                    value={formData.price_per_dozen}
-                    onChange={e => setFormData({ ...formData, price_per_dozen: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Stock (Dozens)</label>
-                  <input 
-                    type="number"
-                    value={formData.stock_dozen}
-                    onChange={e => setFormData({ ...formData, stock_dozen: Number(e.target.value) })}
                     className="w-full px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                 </div>

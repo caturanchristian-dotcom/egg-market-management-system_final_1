@@ -26,7 +26,6 @@ export default function Marketplace() {
     addToCart, 
     removeFromCart, 
     updateQuantity, 
-    changeCartItemUnit, 
     getItemPrice, 
     totalAmount,
     isCartOpen: showMobileCart,
@@ -58,7 +57,7 @@ export default function Marketplace() {
   
   // Confirmation and mobile UI states
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [productToRemove, setProductToRemove] = useState<{ id: number, unit: string } | null>(null);
+  const [productToRemove, setProductToRemove] = useState<{ id: number } | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   /**
@@ -340,7 +339,7 @@ export default function Marketplace() {
                           {product.category_name}
                         </span>
                       </div>
-                      {product.stock < 10 && (
+                      {product.stock_tray < 5 && (
                         <div className="absolute top-2 right-2 md:top-4 md:right-4">
                           <span className="bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2 md:py-1 rounded-full uppercase tracking-wider">
                             Low Stock
@@ -351,7 +350,7 @@ export default function Marketplace() {
                     <div className="p-4 md:p-6">
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="font-bold text-emerald-900 text-base md:text-lg">{product.name}</h3>
-                        <span className="text-emerald-600 font-bold text-sm md:text-base">₱{Number(product.price).toFixed(2)}</span>
+                        <span className="text-emerald-600 font-bold text-sm md:text-base">₱{Number(product.price_per_tray).toFixed(2)}/tray</span>
                       </div>
                       
                       {product.egg_type && (
@@ -359,19 +358,6 @@ export default function Marketplace() {
                           Type: <span className="text-emerald-600">{product.egg_type}</span>
                         </p>
                       )}
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {product.price_per_dozen && Number(product.price_per_dozen) > 0 && (
-                          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-emerald-100">
-                            ₱{Number(product.price_per_dozen).toFixed(2)} / dozen
-                          </span>
-                        )}
-                        {product.price_per_tray && Number(product.price_per_tray) > 0 && (
-                          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-emerald-100">
-                            ₱{Number(product.price_per_tray).toFixed(2)} / tray
-                          </span>
-                        )}
-                      </div>
 
                       <p className="text-emerald-500 text-xs md:text-sm mb-4 line-clamp-2">{product.description}</p>
                       
@@ -406,55 +392,16 @@ export default function Marketplace() {
                             <MessageSquare size={18} />
                           </button>
                           
-                          <div className="relative group/menu">
-                            <button 
-                              onClick={() => {
-                                if (product.stock > 0) addToCart(product, 'unit');
-                                else if ((product.stock_dozen || 0) > 0) addToCart(product, 'dozen');
-                                else if ((product.stock_tray || 0) > 0) addToCart(product, 'tray');
-                              }}
-                              disabled={product.stock === 0 && (product.stock_tray || 0) === 0 && (product.stock_dozen || 0) === 0}
-                              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-200 text-white px-3 py-2 md:px-5 md:py-3 rounded-xl md:rounded-2xl shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center gap-1.5 md:gap-2"
-                            >
-                              <Plus size={18} />
-                              <span className="text-xs md:text-sm font-bold pr-1">Add</span>
-                            </button>
-                            
-                            <div className="absolute bottom-full right-0 mb-2 w-40 bg-white rounded-2xl shadow-2xl border border-emerald-100 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden">
-                              <div className="p-2 bg-emerald-50 border-b border-emerald-100">
-                                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider text-center">Select Unit</p>
-                              </div>
-                              <div className="p-1">
-                                {product.stock > 0 && (
-                                  <button 
-                                    onClick={() => addToCart(product, 'unit')}
-                                    className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-xl flex justify-between items-center group/item"
-                                  >
-                                    <span>Per Unit</span>
-                                    <span className="text-[10px] font-bold text-emerald-400 group-hover/item:text-emerald-600">₱{Number(product.price).toFixed(2)}</span>
-                                  </button>
-                                )}
-                                {product.price_per_dozen && product.price_per_dozen > 0 && (product.stock_dozen || 0) > 0 && (
-                                  <button 
-                                    onClick={() => addToCart(product, 'dozen')}
-                                    className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-xl flex justify-between items-center group/item"
-                                  >
-                                    <span>Per Dozen</span>
-                                    <span className="text-[10px] font-bold text-emerald-400 group-hover/item:text-emerald-600">₱{Number(product.price_per_dozen).toFixed(2)}</span>
-                                  </button>
-                                )}
-                                {product.price_per_tray && Number(product.price_per_tray) > 0 && (product.stock_tray || 0) > 0 && (
-                                  <button 
-                                    onClick={() => addToCart(product, 'tray')}
-                                    className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-xl flex justify-between items-center group/item"
-                                  >
-                                    <span>Per Tray</span>
-                                    <span className="text-[10px] font-bold text-emerald-400 group-hover/item:text-emerald-600">₱{Number(product.price_per_tray).toFixed(2)}</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <button 
+                            onClick={() => {
+                              if ((product.stock_tray || 0) > 0) addToCart(product);
+                            }}
+                            disabled={(product.stock_tray || 0) === 0}
+                            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-200 text-white px-3 py-2 md:px-5 md:py-3 rounded-xl md:rounded-2xl shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center gap-1.5 md:gap-2"
+                          >
+                            <Plus size={18} />
+                            <span className="text-xs md:text-sm font-bold pr-1">Add to Cart</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -505,29 +452,21 @@ export default function Marketplace() {
                               {item.product.egg_type && (
                                 <span className="text-[9px] md:text-[10px] text-emerald-500 italic">{item.product.egg_type}</span>
                               )}
-                              <select 
-                                value={item.unit}
-                                onChange={(e) => changeCartItemUnit(item.product.id, item.unit, e.target.value as any)}
-                                className="bg-emerald-100 text-emerald-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase outline-none border-none cursor-pointer hover:bg-emerald-200 transition-colors"
-                              >
-                                {item.product.stock > 0 && <option value="unit">Unit</option>}
-                                {item.product.price_per_dozen && item.product.price_per_dozen > 0 && (item.product.stock_dozen || 0) > 0 && <option value="dozen">Dozen</option>}
-                                {item.product.price_per_tray && item.product.price_per_tray > 0 && (item.product.stock_tray || 0) > 0 && <option value="tray">Tray</option>}
-                              </select>
+                              <span className="bg-emerald-100 text-emerald-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Tray</span>
                             </div>
                           </div>
-                          <p className="text-emerald-500 text-[10px] md:text-xs mt-0.5 md:mt-1">₱{getItemPrice(item).toFixed(2)} / {item.unit}</p>
+                          <p className="text-emerald-500 text-[10px] md:text-xs mt-0.5 md:mt-1">₱{getItemPrice(item).toFixed(2)} / tray</p>
                           <div className="flex items-center gap-2 md:gap-3 mt-1.5 md:mt-2">
                             <div className="flex items-center gap-1.5 md:gap-2 bg-emerald-50 rounded-lg px-1.5 py-0.5 md:px-2 md:py-1">
                               <button 
-                                onClick={() => updateQuantity(item.product.id, item.unit, -1)}
+                                onClick={() => updateQuantity(item.product.id, -1)}
                                 className="text-emerald-600 hover:bg-emerald-100 rounded p-0.5"
                               >
                                 <Minus size={12} />
                               </button>
                               <span className="text-[10px] md:text-xs font-bold text-emerald-700 w-3 md:w-4 text-center">{item.quantity}</span>
                               <button 
-                                onClick={() => updateQuantity(item.product.id, item.unit, 1)}
+                                onClick={() => updateQuantity(item.product.id, 1)}
                                 className="text-emerald-600 hover:bg-emerald-100 rounded p-0.5"
                               >
                                 <Plus size={12} />
@@ -535,7 +474,7 @@ export default function Marketplace() {
                             </div>
                             <button 
                               onClick={() => {
-                                setProductToRemove({ id: item.product.id, unit: item.unit });
+                                setProductToRemove({ id: item.product.id });
                                 setShowRemoveConfirm(true);
                               }}
                               className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded-lg transition-all"
@@ -578,7 +517,7 @@ export default function Marketplace() {
         }}
         onConfirm={() => {
           if (productToRemove) {
-            removeFromCart(productToRemove.id, productToRemove.unit);
+            removeFromCart(productToRemove.id);
             setShowRemoveConfirm(false);
             setProductToRemove(null);
           }

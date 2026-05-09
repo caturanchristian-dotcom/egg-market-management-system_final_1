@@ -34,6 +34,44 @@ export default function AuthPage() {
   const { login, user, refreshUser } = useAuth();
 
   /**
+   * Listen for OAuth success message from popup
+   */
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
+        return;
+      }
+      
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        refreshUser();
+      }
+    };
+
+    window.addEventListener('message', handleOAuthMessage);
+    return () => window.removeEventListener('message', handleOAuthMessage);
+  }, [refreshUser]);
+
+  /**
+   * Handle Google Login Popup
+   */
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/auth/google/url');
+      const { url } = await res.json();
+      
+      if (url) {
+        window.open(url, 'google_oauth', 'width=500,height=600');
+      }
+    } catch (err) {
+      setError('Failed to initiate Google Login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Redirect authenticated users to their respective dashboards
    */
   useEffect(() => {
@@ -342,6 +380,22 @@ export default function AuthPage() {
               )}
             </button>
           </form>
+
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex-1 h-px bg-emerald-100" />
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Or continue with</span>
+            <div className="flex-1 h-px bg-emerald-100" />
+          </div>
+
+          <button 
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="mt-4 w-full bg-white hover:bg-emerald-50 text-emerald-700 font-bold py-3 rounded-xl border border-emerald-100 shadow-sm flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70"
+          >
+            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+            {isLogin ? 'Sign in with Google' : 'Sign up with Google'}
+          </button>
 
           <div className="mt-8 text-center">
             <button 

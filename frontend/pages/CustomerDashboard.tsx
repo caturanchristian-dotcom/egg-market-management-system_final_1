@@ -441,11 +441,11 @@ export default function CustomerDashboard() {
                               {item.egg_type && (
                                 <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Type: {item.egg_type}</p>
                               )}
-                              <p className="text-xs md:text-sm text-emerald-500">{item.quantity} {item.unit || 'unit'}(s) x ₱{Number(item.price).toFixed(2)}</p>
+                              <p className="text-xs md:text-sm text-emerald-500">{item.quantity} tray(s) x ₱{Number(item.price_per_tray).toFixed(2)}</p>
                             </div>
                           </div>
                         </div>
-                        <p className="font-bold text-emerald-900 text-sm md:text-base">₱{(item.quantity * Number(item.price)).toFixed(2)}</p>
+                        <p className="font-bold text-emerald-900 text-sm md:text-base">₱{(item.quantity * Number(item.price_per_tray)).toFixed(2)}</p>
                       </div>
                     ))}
                   </div>

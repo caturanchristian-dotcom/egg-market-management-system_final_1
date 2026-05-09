@@ -145,7 +145,7 @@ export default function Home() {
             >
               <div className="relative z-10 rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(6,78,59,0.3)] border-[8px] md:border-[16px] border-white bg-white">
                 <img
-                  src="https://thumbs.dreamstime.com/b/white-eggs-carton-24687634.jpg"
+                  src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=1000"
                   alt="Fresh Eggs"
                   className="w-full aspect-[4/5] object-cover"
                   referrerPolicy="no-referrer"
@@ -296,7 +296,7 @@ export default function Home() {
                   />
                   <motion.img 
                     whileHover={{ scale: 1.05 }}
-                    src="https://gofflepoultry.com/wp-content/uploads/2020/05/JumboWhiteTray.png" 
+                    src="https://images.unsplash.com/photo-1587486914673-2192e1e119c7?auto=format&fit=crop&q=80&w=500" 
                     className="rounded-[2rem] md:rounded-[3rem] w-full aspect-[3/4] object-cover shadow-2xl border-2 md:border-4 border-emerald-900" 
                     alt="Organic Brown Eggs" referrerPolicy="no-referrer" 
                   />
@@ -304,7 +304,7 @@ export default function Home() {
                 <div className="space-y-4 md:space-y-6">
                   <motion.img 
                     whileHover={{ scale: 1.05 }}
-                    src="https://foto.wuestenigel.com/wp-content/uploads/api/white-eggs-in-is-container.jpeg" 
+                    src="https://images.unsplash.com/photo-1591465001581-2c57a07a7a30?auto=format&fit=crop&q=80&w=500" 
                     className="rounded-[2rem] md:rounded-[3rem] w-full aspect-[3/4] object-cover shadow-2xl border-2 md:border-4 border-emerald-900" 
                     alt="Egg Carton" referrerPolicy="no-referrer" 
                   />
@@ -370,7 +370,7 @@ export default function Home() {
                   <div className="flex justify-between items-center pt-3 md:pt-4 border-t border-emerald-50">
                     <div className="flex flex-col">
                       <span className="text-[8px] md:text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Starting at</span>
-                      <span className="text-2xl md:text-3xl font-display font-black text-emerald-950">₱{Number(product.price).toFixed(2)}</span>
+                      <span className="text-2xl md:text-3xl font-display font-black text-emerald-950">₱{Number(product.price_per_tray).toFixed(2)}</span>
                     </div>
                     <Link to="/marketplace" className="w-12 h-12 md:w-14 md:h-14 bg-emerald-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center hover:bg-emerald-700 transition-all duration-500 shadow-xl shadow-emerald-900/20">
                       <ShoppingBag size={20} className="md:w-6 md:h-6" />

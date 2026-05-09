@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { Notification as NotificationType } from '../types';
 import ToastNotification, { NotificationType as ToastType } from '../components/Notification';
+import { io, Socket } from 'socket.io-client';
 
 /**
  * NotificationContext Interface
@@ -34,6 +35,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     type: 'info',
     isOpen: false
   });
+
+  const socketRef = useRef<Socket | null>(null);
 
   /**
    * Universal toast trigger
@@ -101,20 +104,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   /**
-   * Lifecycle management: Polling
-   * When a user is logged in, poll every 30 seconds for live updates.
+   * Lifecycle management: WebSockets
+   * Establish connection and listen for real-time events
    */
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      // Implementation of fake-real-time via polling
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
+      
+      const socket = io();
+      socketRef.current = socket;
+
+      socket.emit('identify', user.id);
+
+      socket.on('notification', (data) => {
+        showToast(data.message, 'info');
+        fetchNotifications();
+      });
+
+      return () => {
+        socket.disconnect();
+      };
     } else {
-      // Reset state if no user is present
       setNotifications([]);
     }
-  }, [user, fetchNotifications]);
+  }, [user, fetchNotifications, showToast]);
 
   // Derived state for the badge counter
   const unreadCount = notifications.filter(n => !n.is_read).length;

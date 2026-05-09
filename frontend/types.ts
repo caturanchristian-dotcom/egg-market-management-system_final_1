@@ -3,6 +3,8 @@
  */
 export type UserRole = 'admin' | 'farmer' | 'customer';
 
+export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
 /**
  * Platform User Entity
  * Represents any authenticated identity within the system.
@@ -12,12 +14,14 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  status: string; // 'active' | 'suspended'
+  status: string; // 'approved' | 'pending' | 'suspended' | 'inactive'
   phone?: string;
   address?: string;
   purok?: string; // Local community partition
   latitude?: number;
   longitude?: number;
+  verification_status?: VerificationStatus;
+  verification_document?: string;
 }
 
 /**
@@ -44,12 +48,8 @@ export interface Product {
   name: string;
   egg_type?: string; // e.g., 'Medium', 'Large', 'Extra Large'
   description: string;
-  price: number; // Base price per individual egg
-  price_per_tray?: number;
-  price_per_dozen?: number;
-  stock: number; // Raw unit stock
-  stock_tray?: number;
-  stock_dozen?: number;
+  price_per_tray: number;
+  stock_tray: number;
   category_id: number;
   category_name?: string;
   image_url: string;
@@ -91,10 +91,8 @@ export interface OrderItem {
   name: string;
   egg_type?: string;
   quantity: number;
-  unit?: 'unit' | 'tray' | 'dozen';
-  price: number; // Snapshot price per unit at time of purchase
-  price_per_tray?: number;
-  price_per_dozen?: number;
+  unit: 'tray';
+  price_per_tray: number; // Snapshot price per unit at time of purchase
   image_url: string;
 }
 

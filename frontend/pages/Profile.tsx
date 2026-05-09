@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { User, Order } from '../types';
-import { User as UserIcon, MapPin, Phone, Mail, Package, Clock, ChevronRight, Save, Edit2, Home, X, Shield, Star, Truck, CheckCircle2, Eye, EyeOff, Navigation } from 'lucide-react';
+import { User as UserIcon, MapPin, Phone, Mail, Package, Clock, ChevronRight, Save, Edit2, Home, X, Shield, Star, Truck, CheckCircle2, Eye, EyeOff, Navigation, ShieldCheck, XCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -331,6 +331,27 @@ export default function Profile() {
               </div>
               <h2 className="text-xl font-bold text-emerald-900">{user?.name}</h2>
               <p className="text-emerald-500 text-sm capitalize">{user?.role}</p>
+
+              {/* Farmer Verification Status Badge */}
+              {user?.role === 'farmer' && (
+                <div className="mt-4 flex flex-col items-center">
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    user.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                    user.verification_status === 'pending' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                    user.verification_status === 'rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                    'bg-gray-100 text-gray-500 border border-gray-200'
+                  }`}>
+                    {user.verification_status === 'verified' && <ShieldCheck size={12} />}
+                    {user.verification_status === 'pending' && <Clock size={12} />}
+                    {user.verification_status === 'rejected' && <XCircle size={12} />}
+                    {!user.verification_status || user.verification_status === 'unverified' && < Shield size={12} />}
+                    {user.verification_status || 'unverified'}
+                  </div>
+                  {(!user.verification_status || user.verification_status === 'unverified' || user.verification_status === 'rejected') && (
+                    <p className="text-[9px] text-emerald-500 mt-1 font-medium">Please go to Dashboard to verify</p>
+                  )}
+                </div>
+              )}
               
               <div className="mt-6 md:mt-8 space-y-4 text-left">
                 <div className="flex items-center gap-3 text-emerald-700">

@@ -15,7 +15,6 @@ export default function CartDrawer() {
     setIsCartOpen, 
     removeFromCart, 
     updateQuantity, 
-    changeCartItemUnit, 
     getItemPrice, 
     totalAmount,
     clearCart
@@ -24,7 +23,7 @@ export default function CartDrawer() {
   const { showToast } = useNotifications();
   const navigate = useNavigate();
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [productToRemove, setProductToRemove] = useState<{ id: number, unit: string } | null>(null);
+  const [productToRemove, setProductToRemove] = useState<{ id: number } | null>(null);
 
   const handleCheckout = async () => {
     if (!user) {
@@ -133,7 +132,7 @@ export default function CartDrawer() {
                           />
                           <button 
                             onClick={() => {
-                              setProductToRemove({ id: item.product.id, unit: item.unit });
+                              setProductToRemove({ id: item.product.id });
                               setShowRemoveConfirm(true);
                             }}
                             className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-lg shadow-lg hover:bg-red-600 transition-all z-20"
@@ -155,28 +154,20 @@ export default function CartDrawer() {
                           
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <select 
-                                value={item.unit}
-                                onChange={(e) => changeCartItemUnit(item.product.id, item.unit, e.target.value as any)}
-                                className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-lg outline-none cursor-pointer hover:bg-emerald-100 transition-colors"
-                              >
-                                {item.product.stock > 0 && <option value="unit">Unit</option>}
-                                {item.product.price_per_dozen && item.product.price_per_dozen > 0 && (item.product.stock_dozen || 0) > 0 && <option value="dozen">Dozen</option>}
-                                {item.product.price_per_tray && item.product.price_per_tray > 0 && (item.product.stock_tray || 0) > 0 && <option value="tray">Tray</option>}
-                              </select>
-                              <span className="text-emerald-400 text-[10px]">₱{getItemPrice(item).toFixed(2)} / {item.unit}</span>
+                              <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-lg">Tray</span>
+                              <span className="text-emerald-400 text-[10px]">₱{getItemPrice(item).toFixed(2)} / tray</span>
                             </div>
                             
                             <div className="flex items-center gap-3 bg-emerald-50 rounded-xl px-2 py-1">
                               <button 
-                                onClick={() => updateQuantity(item.product.id, item.unit, -1)}
+                                onClick={() => updateQuantity(item.product.id, -1)}
                                 className="text-emerald-600 hover:bg-emerald-200 rounded-lg p-1 transition-colors"
                               >
                                 <Minus size={14} />
                               </button>
                               <span className="text-sm font-bold text-emerald-700 w-4 text-center">{item.quantity}</span>
                               <button 
-                                onClick={() => updateQuantity(item.product.id, item.unit, 1)}
+                                onClick={() => updateQuantity(item.product.id, 1)}
                                 className="text-emerald-600 hover:bg-emerald-200 rounded-lg p-1 transition-colors"
                               >
                                 <Plus size={14} />
@@ -226,7 +217,7 @@ export default function CartDrawer() {
         }}
         onConfirm={() => {
           if (productToRemove) {
-            removeFromCart(productToRemove.id, productToRemove.unit);
+            removeFromCart(productToRemove.id);
             setShowRemoveConfirm(false);
             setProductToRemove(null);
           }

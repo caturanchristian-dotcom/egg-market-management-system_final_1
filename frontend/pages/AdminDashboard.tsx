@@ -25,7 +25,8 @@ import {
   ChevronRight,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  FileText
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -58,7 +59,10 @@ export default function AdminDashboard() {
   const [categoryReports, setCategoryReports] = useState<any[]>([]); // Performance by category
   const [farmerReports, setFarmerReports] = useState<any[]>([]); // Top performing suppliers
   const [settings, setSettings] = useState<any>(null);
+  const [settingsForm, setSettingsForm] = useState<any>({});
+  const [savingSettings, setSavingSettings] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [pendingVerifications, setPendingVerifications] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -156,7 +160,7 @@ export default function AdminDashboard() {
         fetch('/api/products'),
         fetch('/api/admin/orders'),
         fetch('/api/admin/reports/sales'),
-        fetch('/api/admin/settings'),
+        fetch('/api/settings'),
         fetch('/api/categories'),
         fetch('/api/admin/reports/categories'),
         fetch('/api/admin/reports/farmers')
@@ -166,10 +170,13 @@ export default function AdminDashboard() {
       setProducts(await productsRes.json());
       setOrders(await ordersRes.json());
       setReports(await reportsRes.json());
-      setSettings(await settingsRes.json());
+      const settingsData = await settingsRes.json();
+      setSettings(settingsData);
+      setSettingsForm(settingsData);
       setCategories(await categoriesRes.json());
       setCategoryReports(await catReportsRes.json());
       setFarmerReports(await farmerReportsRes.json());
+      fetchPendingVerifications();
     } catch (err) {
       console.error('Error fetching admin data:', err);
     } finally {
@@ -657,30 +664,14 @@ export default function AdminDashboard() {
                 <td className="px-6 py-4 text-sm text-emerald-600">{product.egg_type || '-'}</td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    <p className="text-sm font-bold text-emerald-900">₱{Number(product.price).toFixed(2)} <span className="text-[10px] text-emerald-400 font-normal">/unit</span></p>
-                    {product.price_per_dozen && Number(product.price_per_dozen) > 0 && (
-                      <p className="text-[10px] text-emerald-600 font-bold">₱{Number(product.price_per_dozen).toFixed(2)} <span className="font-normal">/dozen</span></p>
-                    )}
-                    {product.price_per_tray && Number(product.price_per_tray) > 0 && (
-                      <p className="text-[10px] text-emerald-600 font-bold">₱{Number(product.price_per_tray).toFixed(2)} <span className="font-normal">/tray</span></p>
-                    )}
+                    <p className="text-sm font-bold text-emerald-900">₱{Number(product.price_per_tray).toFixed(2)} <span className="text-[10px] text-emerald-400 font-normal">/tray</span></p>
                   </div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    <span className={`text-xs font-bold ${product.stock < 10 ? 'text-orange-600' : 'text-emerald-700'}`}>
-                      {product.stock} units
+                    <span className={`text-xs font-bold ${product.stock_tray < 5 ? 'text-orange-600' : 'text-emerald-700'}`}>
+                      {product.stock_tray} trays
                     </span>
-                    {product.stock_dozen !== undefined && product.stock_dozen > 0 && (
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        {product.stock_dozen} dozens
-                      </span>
-                    )}
-                    {product.stock_tray !== undefined && product.stock_tray > 0 && (
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        {product.stock_tray} trays
-                      </span>
-                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -718,12 +709,12 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-[10px] text-emerald-500 uppercase font-bold mb-1">Stock</p>
                 <div className="space-y-1">
-                  <p className={`text-sm font-bold ${product.stock < 10 ? 'text-orange-600' : 'text-emerald-900'}`}>{product.stock} Units</p>
+                  <p className={`text-sm font-bold ${product.stock_tray < 5 ? 'text-orange-600' : 'text-emerald-900'}`}>{product.stock_tray} Trays</p>
                 </div>
               </div>
               <div>
                 <p className="text-[10px] text-emerald-500 uppercase font-bold mb-1">Pricing</p>
-                <p className="text-sm font-bold text-emerald-900">₱{Number(product.price).toFixed(2)}/u</p>
+                <p className="text-sm font-bold text-emerald-900">₱{Number(product.price_per_tray).toFixed(2)}/t</p>
               </div>
             </div>
 
@@ -1043,6 +1034,13 @@ export default function AdminDashboard() {
                         <UserCheck size={18} />
                       </button>
                     )}
+                    <button 
+                      onClick={() => handleDeleteUser(farmer.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                      title="Delete Farmer"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -1053,6 +1051,122 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const fetchPendingVerifications = async () => {
+    try {
+      const res = await fetch('/api/admin/pending-verifications');
+      if (res.ok) {
+        setPendingVerifications(await res.json());
+      }
+    } catch (err) {
+      console.error('Error fetching pending verifications:', err);
+    }
+  };
+
+  const handleVerifyFarmer = async (farmerId: number, status: 'verified' | 'rejected') => {
+    try {
+      const res = await fetch(`/api/admin/verify-farmer/${farmerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      
+      if (res.ok) {
+        showNotify(`Farmer ${status === 'verified' ? 'verified' : 'rejected'} successfully`, 'success');
+        fetchPendingVerifications();
+        fetchData(); // Refresh users list too
+      } else {
+        const data = await res.json();
+        showNotify(data.error || 'Failed to update verification status', 'error');
+      }
+    } catch (err) {
+      showNotify('An error occurred', 'error');
+    }
+  };
+
+  const renderVerifications = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-emerald-900">Farmer Verification Requests</h2>
+        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
+          {pendingVerifications.length} Pending
+        </span>
+      </div>
+
+      {pendingVerifications.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-emerald-100 p-12 text-center shadow-sm">
+          <ShieldCheck size={48} className="mx-auto text-emerald-200 mb-4" />
+          <h3 className="font-bold text-emerald-900 mb-1 font-serif text-lg">All caught up!</h3>
+          <p className="text-emerald-500 text-sm">There are no pending farmer verification requests at the moment.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {pendingVerifications.map(farmer => (
+            <motion.div 
+              key={farmer.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-emerald-100 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-emerald-200 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xl">
+                  {farmer.name[0]}
+                </div>
+                <div>
+                  <h3 className="font-bold text-emerald-900 text-lg">{farmer.name}</h3>
+                  <p className="text-sm text-emerald-500 mb-1">{farmer.email}</p>
+                  <a 
+                    href={farmer.verification_document} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                  >
+                    <FileText size={14} /> View Identification Document
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleVerifyFarmer(farmer.id, 'rejected')}
+                  className="flex-1 md:flex-none border border-red-100 text-red-600 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                >
+                  <XCircle size={18} /> Reject
+                </button>
+                <button 
+                  onClick={() => handleVerifyFarmer(farmer.id, 'verified')}
+                  className="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <UserCheck size={18} /> Approve & Verify
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const handleUpdateSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsForm)
+      });
+      if (res.ok) {
+        showNotify('Settings updated successfully!', 'success');
+        fetchData();
+      } else {
+        showNotify('Failed to update settings', 'error');
+      }
+    } catch (err) {
+      showNotify('An error occurred while saving settings', 'error');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const renderSettings = () => (
     <div className="space-y-8">
       <h2 className="text-2xl font-bold text-emerald-900">System Settings</h2>
@@ -1062,33 +1176,72 @@ export default function AdminDashboard() {
             <label className="text-sm font-bold text-emerald-700">Platform Name</label>
             <input 
               type="text" 
-              defaultValue={settings?.platformName}
+              value={settingsForm?.site_name || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, site_name: e.target.value })}
               className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              placeholder="e.g., EggMarket"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-bold text-emerald-700">Support Email</label>
+            <label className="text-sm font-bold text-emerald-700">Contact Email</label>
             <input 
               type="email" 
-              defaultValue={settings?.supportEmail}
+              value={settingsForm?.contact_email || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, contact_email: e.target.value })}
               className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              placeholder="e.g., support@eggmarket.com"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl">
-            <div>
-              <p className="font-bold text-emerald-900">Maintenance Mode</p>
-              <p className="text-xs text-emerald-500">Temporarily disable public access</p>
-            </div>
-            <button className={`w-12 h-6 rounded-full transition-all relative ${settings?.maintenanceMode ? 'bg-emerald-600' : 'bg-emerald-200'}`}>
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.maintenanceMode ? 'right-1' : 'left-1'}`} />
-            </button>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-emerald-700">Contact Phone</label>
+            <input 
+              type="text" 
+              value={settingsForm?.contact_phone || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, contact_phone: e.target.value })}
+              className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              placeholder="e.g., 09350347461"
+            />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-emerald-700">Contact Address</label>
+            <textarea 
+              value={settingsForm?.contact_address || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, contact_address: e.target.value })}
+              className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none min-h-[100px] resize-none"
+              placeholder="e.g., canipaan hinunangan Egg Valley"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-emerald-700">Site Description</label>
+            <textarea 
+              value={settingsForm?.site_description || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, site_description: e.target.value })}
+              className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none min-h-[120px] resize-none"
+              placeholder="Describe the platform..."
+            />
+          </div>
+          
           <div className="pt-6 border-t border-emerald-50">
             <button 
-              onClick={() => showNotify('Settings saved successfully!', 'success')}
-              className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+              onClick={handleUpdateSettings}
+              disabled={savingSettings}
+              className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
+                savingSettings 
+                  ? 'bg-emerald-100 text-emerald-300 cursor-not-allowed shadow-none' 
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100 active:scale-[0.98]'
+              }`}
             >
-              Save Changes
+              {savingSettings ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={20} />
+                  Save Changes
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1101,6 +1254,7 @@ export default function AdminDashboard() {
       {activeTab === 'dashboard' && renderOverview()}
       {activeTab === 'users' && renderUsers()}
       {activeTab === 'farmers' && renderFarmers()}
+      {activeTab === 'verifications' && renderVerifications()}
       {activeTab === 'categories' && renderCategories()}
       {activeTab === 'products' && renderProducts()}
       {activeTab === 'orders' && renderOrders()}

@@ -4,6 +4,7 @@ import {
   ShoppingBag, 
   Users, 
   UserCheck,
+  ShieldCheck,
   Package, 
   ClipboardList, 
   BarChart3, 
@@ -14,7 +15,8 @@ import {
   Tags,
   MessageSquare,
   User as UserIcon,
-  Home as HomeIcon
+  Home as HomeIcon,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -43,6 +45,7 @@ export default function Sidebar({ onClose, activeTab, setActiveTab }: SidebarPro
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
     { id: 'users', label: 'Customer Management', icon: Users },
     { id: 'farmers', label: 'Farmer Management', icon: UserCheck },
+    { id: 'verifications', label: 'Farmer Verifications', icon: ShieldCheck },
     { id: 'categories', label: 'Categories', icon: Tags },
     { id: 'products', label: 'Product Monitoring', icon: Package },
     { id: 'orders', label: 'Order Monitoring', icon: ClipboardList },
@@ -57,6 +60,7 @@ export default function Sidebar({ onClose, activeTab, setActiveTab }: SidebarPro
     { id: 'manage-products', label: 'My Products', icon: Package },
     { id: 'orders', label: 'Customer Orders', icon: ClipboardList },
     { id: 'messages', label: 'Messages', icon: MessageSquare },
+    { id: 'verification', label: 'Account Verification', icon: ShieldCheck },
     { id: 'inventory', label: 'Inventory Status', icon: ClipboardList },
     { id: 'sales', label: 'Sales Reports', icon: BarChart3 },
     { id: 'site-settings', label: 'Site Settings', icon: Settings },
