@@ -21,10 +21,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Secret for signing cookies
 const SESSION_SECRET = process.env.SESSION_SECRET || 'eggmarket_default_secret';
 
-// Configure Google OAuth client
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const APP_URL = process.env.APP_URL;
+
+  const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
+
+  /**
+   * Helper to get base URL for redirects
+   */
+  const getBaseUrl = (req: express.Request) => {
+    return APP_URL || `${req.protocol}://${req.get('host')}`;
+  };
 
 /**
  * Main server startup function
@@ -251,9 +259,9 @@ async function startServer() {
         [2, 'Organic Brown Eggs', 'Certified organic brown eggs rich in Omega-3.', 15.00, 50, organicCategory.id, 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&q=80&w=400']);
     }
   }
-  } catch (err) {
-    console.error('Migration failed:', err);
-  }
+} catch (err) {
+  console.error('Migration failed:', err);
+}
 };
 
   // Initialize Express App
@@ -447,10 +455,11 @@ async function startServer() {
       return res.status(500).json({ error: 'Google OAuth is not configured' });
     }
 
-    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
+      prompt: 'select_account',
       scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
       redirect_uri: redirectUri,
     });
@@ -468,7 +477,7 @@ async function startServer() {
     }
 
     try {
-      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = getBaseUrl(req);
       const redirectUri = `${baseUrl}/api/auth/google/callback`;
       // Exchange authorization code for tokens
       const { tokens } = await oauth2Client.getToken({
