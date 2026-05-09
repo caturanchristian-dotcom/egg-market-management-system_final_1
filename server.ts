@@ -4,13 +4,9 @@ import { createServer as createViteServer } from 'vite';
 import db from './db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
-import multer from 'multer';
-import fs from 'fs';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -24,18 +20,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'eggmarket_default_secret';
 // Configure Google OAuth client
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const APP_URL = process.env.APP_URL;
-
 const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
-
-/**
- * Helper to get base URL for redirects
- */
-const getBaseUrl = (req: express.Request) => {
-  const protocol = req.get('x-forwarded-proto') || req.protocol;
-  const host = req.get('x-forwarded-host') || req.get('host');
-  return APP_URL || `${protocol}://${host}`;
-};
 
 /**
  * Main server startup function
@@ -51,15 +36,13 @@ async function startServer() {
     await db.query('SELECT 1');
     console.log('Database connection successful.');
   } catch (err) {
-    console.error('WARNING: Initial database connection failed!');
+    console.error('CRITICAL: Database connection failed!');
     console.error('Error details:', err);
-    // Do not exit here to allow health check to serve
+    process.exit(1);
   }
 
-  const runMigrations = async () => {
-    try {
-      // Initialize Core Database Tables
-      await db.exec(`
+  // Initialize Core Database Tables
+  await db.exec(`
     -- User profiles and account information
     CREATE TABLE IF NOT EXISTS users (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -132,25 +115,6 @@ async function startServer() {
     console.log('Migration: User table location columns verified.');
   } catch (err) {
     console.error('Migration check failed or columns already exist:', err);
-  }
-
-  // Migration: Add verification columns to users table
-  try {
-    const columns = await db.query('SHOW COLUMNS FROM users');
-    const columnNames = columns.map((c: any) => (c.Field || c.field || c.Column_name || ''));
-    
-    if (!columnNames.includes('verification_status')) {
-      console.log('Migration: Adding verification_status to users table...');
-      await db.execute("ALTER TABLE users ADD COLUMN verification_status ENUM('unverified', 'pending', 'verified', 'rejected') DEFAULT 'unverified'");
-    }
-    
-    if (!columnNames.includes('verification_document')) {
-      console.log('Migration: Adding verification_document to users table...');
-      await db.execute('ALTER TABLE users ADD COLUMN verification_document TEXT');
-    }
-    console.log('Migration: User verification columns verified.');
-  } catch (err) {
-    console.error('Migration check for verification columns failed:', err);
   }
 
   // Initialize Transactional and Interaction Tables
@@ -262,92 +226,14 @@ async function startServer() {
         [2, 'Organic Brown Eggs', 'Certified organic brown eggs rich in Omega-3.', 15.00, 50, organicCategory.id, 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&q=80&w=400']);
     }
   }
-} catch (err) {
-  console.error('Migration failed:', err);
-}
-};
 
   // Initialize Express App
   const app = express();
-  const httpServer = createServer(app);
-  let io: Server;
-  
-  try {
-    io = new Server(httpServer, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-      }
-    });
-    console.log('Socket.io initialized successfully');
-  } catch (err) {
-    console.error('Failed to initialize Socket.io:', err);
-  }
-
-  // Store active socket connections by user ID
-  const userSockets = new Map<string, string>();
-
-  if (io) {
-    io.on('connection', (socket) => {
-      socket.on('identify', (userId) => {
-        userSockets.set(userId.toString(), socket.id);
-      });
-
-      socket.on('disconnect', () => {
-        // Cleanup
-        for (const [userId, socketId] of userSockets.entries()) {
-          if (socketId === socket.id) {
-            userSockets.delete(userId);
-            break;
-          }
-        }
-      });
-    });
-  }
-
-  // Helper to send real-time notification
-  const sendRealTimeNotification = (userId: number, message: string, data?: any) => {
-    if (!io) return;
-    const socketId = userSockets.get(userId.toString());
-    if (socketId) {
-      io.to(socketId).emit('notification', { message, ...data });
-    }
-  };
-  
-  // Ensure uploads directory exists
-  const uploadsDir = path.join(__dirname, 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  // Add a health check early to verify server is reachable
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  // Multer setup for handling file uploads
-  const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  });
-
-  const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  });
-
   // Set payload limits for handling larger objects like base64 images
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
   // Use signed cookies for session management
   app.use(cookieParser(SESSION_SECRET));
-  // Serve uploaded files as static assets
-  app.use('/uploads', express.static(uploadsDir));
 
   // --- API Authentication Routes ---
 
@@ -358,7 +244,7 @@ async function startServer() {
   app.get('/api/auth/me', async (req, res) => {
     const userId = req.signedCookies.user_id;
     if (userId) {
-      const user = await db.queryOne('SELECT id, name, email, role, status, phone, address, purok, latitude, longitude, verification_status, verification_document FROM users WHERE id = ?', [userId]);
+      const user = await db.queryOne('SELECT id, name, email, role, status, phone, address, purok, latitude, longitude FROM users WHERE id = ?', [userId]);
       if (user) {
         return res.json(user);
       }
@@ -403,11 +289,9 @@ async function startServer() {
 
     try {
       // Insert new user record into database
-      // Farmers require admin approval, other roles are approved by default
-      const initialStatus = role === 'farmer' ? 'pending' : 'approved';
       const result = await db.execute(
-        'INSERT INTO users (name, email, password, role, status, phone, address, purok, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-        [name, email, password, role, initialStatus, phone || null, address || null, purok || null, latitude ?? null, longitude ?? null]
+        'INSERT INTO users (name, email, password, role, phone, address, purok, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        [name, email, password, role, phone || null, address || null, purok || null, latitude ?? null, longitude ?? null]
       );
       const user = await db.queryOne('SELECT * FROM users WHERE id = ?', [(result as any).insertId]);
       
@@ -458,11 +342,10 @@ async function startServer() {
       return res.status(500).json({ error: 'Google OAuth is not configured' });
     }
 
-    const baseUrl = getBaseUrl(req);
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      prompt: 'select_account',
       scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
       redirect_uri: redirectUri,
     });
@@ -480,7 +363,7 @@ async function startServer() {
     }
 
     try {
-      const baseUrl = getBaseUrl(req);
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
       const redirectUri = `${baseUrl}/api/auth/google/callback`;
       // Exchange authorization code for tokens
       const { tokens } = await oauth2Client.getToken({
@@ -578,7 +461,7 @@ async function startServer() {
    */
   app.post('/api/products', async (req, res) => {
     try {
-      const { farmer_id, name, egg_type, description, price_per_tray, stock_tray, category_id, image_url } = req.body;
+      const { farmer_id, name, egg_type, description, price, price_per_tray, price_per_dozen, stock, stock_tray, stock_dozen, category_id, image_url } = req.body;
       
       if (!farmer_id || !category_id) {
         return res.status(400).json({ error: 'Farmer ID and Category ID are required' });
@@ -596,7 +479,7 @@ async function startServer() {
       }
 
       const result = await db.execute('INSERT INTO products (farmer_id, name, egg_type, description, price, price_per_tray, price_per_dozen, stock, stock_tray, stock_dozen, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [farmer_id, name, egg_type, description, 0, price_per_tray, 0, 0, stock_tray || 0, 0, category_id, image_url]);
+        [farmer_id, name, egg_type, description, price, price_per_tray, price_per_dozen, stock, stock_tray || 0, stock_dozen || 0, category_id, image_url]);
       res.json({ id: (result as any).insertId });
     } catch (err: any) {
       console.error('Error creating product:', err);
@@ -610,7 +493,7 @@ async function startServer() {
    */
   app.put('/api/products/:id', async (req, res) => {
     try {
-      const { name, egg_type, description, price_per_tray, stock_tray, category_id, image_url } = req.body;
+      const { name, egg_type, description, price, price_per_tray, price_per_dozen, stock, stock_tray, stock_dozen, category_id, image_url } = req.body;
 
       if (!category_id) {
         return res.status(400).json({ error: 'Category ID is required' });
@@ -623,7 +506,7 @@ async function startServer() {
       }
 
       await db.execute('UPDATE products SET name = ?, egg_type = ?, description = ?, price = ?, price_per_tray = ?, price_per_dozen = ?, stock = ?, stock_tray = ?, stock_dozen = ?, category_id = ?, image_url = ? WHERE id = ?',
-        [name, egg_type, description, 0, price_per_tray, 0, 0, stock_tray || 0, 0, category_id, image_url, req.params.id]);
+        [name, egg_type, description, price, price_per_tray, price_per_dozen, stock, stock_tray || 0, stock_dozen || 0, category_id, image_url, req.params.id]);
       res.json({ success: true });
     } catch (err: any) {
       console.error('Error updating product:', err);
@@ -750,31 +633,13 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Helper middleware to check if user is admin
-  const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const userId = req.signedCookies.user_id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    try {
-      const user = await db.queryOne('SELECT role FROM users WHERE id = ?', [userId]);
-      if (user && user.role === 'admin') {
-        next();
-      } else {
-        res.status(403).json({ error: 'Forbidden: Admin access required' });
-      }
-    } catch (err) {
-      res.status(500).json({ error: 'Authentication check failed' });
-    }
-  };
-
   // --- Admin Category Management ---
 
   /**
    * POST /api/admin/categories
    * Adds a new product category
    */
-  app.post('/api/admin/categories', isAdmin, async (req, res) => {
+  app.post('/api/admin/categories', async (req, res) => {
     const { name } = req.body;
     try {
       const result = await db.execute('INSERT INTO categories (name) VALUES (?)', [name]);
@@ -788,7 +653,7 @@ async function startServer() {
    * PUT /api/admin/categories/:id
    * Updates a category name
    */
-  app.put('/api/admin/categories/:id', isAdmin, async (req, res) => {
+  app.put('/api/admin/categories/:id', async (req, res) => {
     const { name } = req.body;
     try {
       await db.execute('UPDATE categories SET name = ? WHERE id = ?', [name, req.params.id]);
@@ -802,7 +667,7 @@ async function startServer() {
    * DELETE /api/admin/categories/:id
    * Deletes a category if it's not currently being used by any products
    */
-  app.delete('/api/admin/categories/:id', isAdmin, async (req, res) => {
+  app.delete('/api/admin/categories/:id', async (req, res) => {
     try {
       const categoryId = req.params.id;
       // Pre-check: Don't break products by orphanning their category
@@ -838,34 +703,24 @@ async function startServer() {
 
         // 2. Process each item in the cart
         for (const item of items) {
-          const product = await db.queryOne('SELECT farmer_id, name, egg_type, price_per_tray FROM products WHERE id = ?', [item.id]);
+          const product = await db.queryOne('SELECT farmer_id, name, egg_type, price_per_tray, price_per_dozen FROM products WHERE id = ?', [item.id]);
           
-          if (!product) continue; // Skip if product somehow disappeared
-
           // Store snapshot of product details in order_items for historical accuracy
-          // Use item.price from frontend (calculated snapshot) or fallback to current DB price
-          const priceSnapshot = item.price || product.price_per_tray || 0;
-          const eggTypeSnapshot = product.egg_type || 'Standard';
-          const pricePerTraySnapshot = product.price_per_tray || 0;
-
           await db.execute('INSERT INTO order_items (order_id, product_id, quantity, unit, price, egg_type, price_per_tray, price_per_dozen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [orderId, item.id, item.quantity, 'tray', priceSnapshot, eggTypeSnapshot, pricePerTraySnapshot, 0]);
+            [orderId, item.id, item.quantity, item.unit || 'unit', item.price, product.egg_type, product.price_per_tray, product.price_per_dozen]);
           
           // 3. Update stock based on the unit type ordered
-          await db.execute('UPDATE products SET stock_tray = stock_tray - ? WHERE id = ?', [item.quantity, item.id]);
+          if (item.unit === 'dozen') {
+            await db.execute('UPDATE products SET stock_dozen = stock_dozen - ? WHERE id = ?', [item.quantity, item.id]);
+          } else if (item.unit === 'tray') {
+            await db.execute('UPDATE products SET stock_tray = stock_tray - ? WHERE id = ?', [item.quantity, item.id]);
+          } else {
+            await db.execute('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
+          }
           
           // 4. Notify farmer about the new order
-          const farmerMessage = `New order for ${item.quantity} tray(s) of ${product.name}`;
-          await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [product.farmer_id, farmerMessage]);
-          
-          sendRealTimeNotification(product.farmer_id, farmerMessage);
+          await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [product.farmer_id, `New order for ${item.quantity} ${item.unit || 'unit'}(s) of ${product.name}`]);
         }
-
-        // Notify customer that order is pending
-        const customerMessage = `Your order #${orderId} has been placed and is now pending.`;
-        await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [customer_id, customerMessage]);
-        
-        sendRealTimeNotification(customer_id, customerMessage);
       });
       res.json({ id: orderId });
     } catch (err: any) {
@@ -919,7 +774,7 @@ async function startServer() {
    */
   app.get('/api/orders/:id/items', async (req, res) => {
     const items = await db.query(`
-      SELECT oi.*, oi.price as price_per_tray, p.name, p.image_url 
+      SELECT oi.*, p.name, p.image_url 
       FROM order_items oi 
       JOIN products p ON oi.product_id = p.id 
       WHERE oi.order_id = ?
@@ -937,11 +792,7 @@ async function startServer() {
     
     // Send tracking update notification to customer
     const order = await db.queryOne('SELECT customer_id FROM orders WHERE id = ?', [req.params.id]);
-    const message = `Your order #${req.params.id} status updated to ${status}`;
-    await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [order.customer_id, message]);
-    
-    // Broadcast real-time update
-    sendRealTimeNotification(order.customer_id, message);
+    await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [order.customer_id, `Your order #${req.params.id} status updated to ${status}`]);
     
     res.json({ success: true });
   });
@@ -955,83 +806,6 @@ async function startServer() {
   app.get('/api/notifications/:userId', async (req, res) => {
     const notifications = await db.query('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50', [req.params.userId]);
     res.json(notifications);
-  });
-
-  // --- Farmer Verification Routes ---
-
-  /**
-   * POST /api/farmer/verify
-   * Allows a farmer to upload a verification document
-   */
-  app.post('/api/farmer/verify', upload.single('document'), async (req, res) => {
-    const { userId } = req.body;
-    if (!req.file) {
-      return res.status(400).json({ error: 'No document uploaded' });
-    }
-
-    try {
-      const documentUrl = `/uploads/${req.file.filename}`;
-      await db.execute(
-        "UPDATE users SET verification_status = 'pending', verification_document = ? WHERE id = ?",
-        [documentUrl, userId]
-      );
-      
-      // Notify admins (all users with role 'admin')
-      const admins = await db.query("SELECT id FROM users WHERE role = 'admin'");
-      const farmer = await db.queryOne('SELECT name FROM users WHERE id = ?', [userId]);
-      
-      for (const admin of admins) {
-        await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', 
-          [admin.id, `Farmer ${farmer.name} has submitted a verification document for review.`]);
-      }
-
-      res.json({ success: true, documentUrl });
-    } catch (err: any) {
-      console.error('Verification upload error:', err);
-      res.status(500).json({ error: 'Failed to submit verification' });
-    }
-  });
-
-  /**
-   * GET /api/admin/pending-verifications
-   * Retrieves all farmers with a pending verification status
-   */
-  app.get('/api/admin/pending-verifications', isAdmin, async (req, res) => {
-    const pendingFarmers = await db.query(`
-      SELECT id, name, email, phone, address, verification_status, verification_document 
-      FROM users 
-      WHERE verification_status = 'pending' AND role = 'farmer'
-    `);
-    res.json(pendingFarmers);
-  });
-
-  /**
-   * PUT /api/admin/verify-farmer/:id
-   * Approves or rejects a farmer's verification request
-   */
-  app.put('/api/admin/verify-farmer/:id', isAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body; // 'verified' or 'rejected'
-
-    if (!['verified', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid verification status' });
-    }
-
-    try {
-      await db.execute('UPDATE users SET verification_status = ? WHERE id = ?', [status, id]);
-      
-      // Notify the farmer
-      const message = status === 'verified' 
-        ? 'Congratulations! Your account has been verified.' 
-        : 'Your verification request was rejected. Please review your documents and try again.';
-        
-      await db.execute('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [id, message]);
-      
-      res.json({ success: true });
-    } catch (err: any) {
-      console.error('Admin verification update error:', err);
-      res.status(500).json({ error: 'Failed to update verification status' });
-    }
   });
 
   /**
@@ -1049,7 +823,7 @@ async function startServer() {
    * GET /api/admin/stats
    * Aggregates high-level platform statistics for the admin dashboard
    */
-  app.get('/api/admin/stats', isAdmin, async (req, res) => {
+  app.get('/api/admin/stats', async (req, res) => {
     const totalUsers = await db.queryOne('SELECT COUNT(*) as count FROM users');
     const totalFarmers = await db.queryOne("SELECT COUNT(*) as count FROM users WHERE role = 'farmer'");
     const totalCustomers = await db.queryOne("SELECT COUNT(*) as count FROM users WHERE role = 'customer'");
@@ -1070,7 +844,7 @@ async function startServer() {
    * GET /api/admin/users
    * Lists all registered users for admin overview
    */
-  app.get('/api/admin/users', isAdmin, async (req, res) => {
+  app.get('/api/admin/users', async (req, res) => {
     const users = await db.query('SELECT id, name, email, role, status FROM users');
     res.json(users);
   });
@@ -1079,7 +853,7 @@ async function startServer() {
    * POST /api/admin/users
    * Allows admin to manually create a new user account
    */
-  app.post('/api/admin/users', isAdmin, async (req, res) => {
+  app.post('/api/admin/users', async (req, res) => {
     const { name, email, password, role } = req.body;
     try {
       const result = await db.execute('INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, ?, ?)',
@@ -1099,7 +873,7 @@ async function startServer() {
    * PUT /api/admin/users/:id
    * Allows admin to update user profiles, including password resets
    */
-  app.put('/api/admin/users/:id', isAdmin, async (req, res) => {
+  app.put('/api/admin/users/:id', async (req, res) => {
     const { name, email, password, role } = req.body;
     try {
       if (password) {
@@ -1125,7 +899,7 @@ async function startServer() {
    * PUT /api/admin/users/:id/status
    * Quickly toggles a user's account status (e.g., 'approved', 'suspended')
    */
-  app.put('/api/admin/users/:id/status', isAdmin, async (req, res) => {
+  app.put('/api/admin/users/:id/status', async (req, res) => {
     const { status } = req.body;
     await db.execute('UPDATE users SET status = ? WHERE id = ?', [status, req.params.id]);
     res.json({ success: true });
@@ -1136,7 +910,7 @@ async function startServer() {
    * Removes a user and all their associated data (cascading cleanup)
    * Only allowed if the user has no transaction history (orders)
    */
-  app.delete('/api/admin/users/:id', isAdmin, async (req, res) => {
+  app.delete('/api/admin/users/:id', async (req, res) => {
     try {
       const userId = req.params.id;
       // Check if user has orders
@@ -1148,15 +922,10 @@ async function startServer() {
       }
 
       await db.transaction(async () => {
-        // Cleanup all related data
         await db.execute('DELETE FROM notifications WHERE user_id = ?', [userId]);
         await db.execute('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?', [userId, userId]);
         await db.execute('DELETE FROM reviews WHERE customer_id = ? OR farmer_id = ?', [userId, userId]);
-        
-        // Delete farmer's products
-        const productsResult = await db.execute('DELETE FROM products WHERE farmer_id = ?', [userId]);
-        console.log(`Deleted ${(productsResult as any).affectedRows || 0} products for farmer ${userId}`);
-        
+        await db.execute('DELETE FROM products WHERE farmer_id = ?', [userId]);
         await db.execute('DELETE FROM users WHERE id = ?', [userId]);
       });
       
@@ -1171,7 +940,7 @@ async function startServer() {
    * GET /api/admin/orders
    * Lists all platform orders for administrative oversight
    */
-  app.get('/api/admin/orders', isAdmin, async (req, res) => {
+  app.get('/api/admin/orders', async (req, res) => {
     const orders = await db.query(`
       SELECT o.*, u.name as customer_name 
       FROM orders o 
@@ -1187,7 +956,7 @@ async function startServer() {
    * GET /api/admin/reports/sales
    * Returns monthly revenue and order count for the last 12 months
    */
-  app.get('/api/admin/reports/sales', isAdmin, async (req, res) => {
+  app.get('/api/admin/reports/sales', async (req, res) => {
     const reports = await db.query(`
       SELECT 
         DATE_FORMAT(created_at, '%Y-%m') as month,
@@ -1206,7 +975,7 @@ async function startServer() {
    * GET /api/admin/reports/categories
    * Breaks down platform revenue by product category
    */
-  app.get('/api/admin/reports/categories', isAdmin, async (req, res) => {
+  app.get('/api/admin/reports/categories', async (req, res) => {
     const reports = await db.query(`
       SELECT c.name as name, SUM(oi.quantity * oi.price) as value
       FROM order_items oi
@@ -1224,7 +993,7 @@ async function startServer() {
    * GET /api/admin/reports/farmers
    * Lists top 10 farmers based on total revenue generated
    */
-  app.get('/api/admin/reports/farmers', isAdmin, async (req, res) => {
+  app.get('/api/admin/reports/farmers', async (req, res) => {
     const reports = await db.query(`
       SELECT u.name as name, SUM(o.total_amount) as value
       FROM orders o
@@ -1510,13 +1279,8 @@ async function startServer() {
 
   // --- Bootstrap Server ---
   const PORT = process.env.PORT || 3000;
-  httpServer.listen(Number(PORT), '0.0.0.0', () => {
+  app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-  });
-
-  // Run migrations and data seeding in the background to avoid blocking server readiness
-  runMigrations().catch(err => {
-    console.error('Migration background task failed:', err);
   });
 }
 
