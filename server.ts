@@ -250,7 +250,7 @@ async function startServer() {
       await db.execute('INSERT INTO products (farmer_id, name, description, price, stock, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)', 
         [2, 'Organic Brown Eggs', 'Certified organic brown eggs rich in Omega-3.', 15.00, 50, organicCategory.id, 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&q=80&w=400']);
     }
-    }
+  }
   } catch (err) {
     console.error('Migration failed:', err);
   }
@@ -259,29 +259,44 @@ async function startServer() {
   // Initialize Express App
   const app = express();
   const httpServer = createServer(app);
-  const io = new Server(httpServer);
+  let io: Server;
+  
+  try {
+    io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
+    });
+    console.log('Socket.io initialized successfully');
+  } catch (err) {
+    console.error('Failed to initialize Socket.io:', err);
+  }
 
   // Store active socket connections by user ID
   const userSockets = new Map<string, string>();
 
-  io.on('connection', (socket) => {
-    socket.on('identify', (userId) => {
-      userSockets.set(userId.toString(), socket.id);
-    });
+  if (io) {
+    io.on('connection', (socket) => {
+      socket.on('identify', (userId) => {
+        userSockets.set(userId.toString(), socket.id);
+      });
 
-    socket.on('disconnect', () => {
-      // Cleanup
-      for (const [userId, socketId] of userSockets.entries()) {
-        if (socketId === socket.id) {
-          userSockets.delete(userId);
-          break;
+      socket.on('disconnect', () => {
+        // Cleanup
+        for (const [userId, socketId] of userSockets.entries()) {
+          if (socketId === socket.id) {
+            userSockets.delete(userId);
+            break;
+          }
         }
-      }
+      });
     });
-  });
+  }
 
   // Helper to send real-time notification
   const sendRealTimeNotification = (userId: number, message: string, data?: any) => {
+    if (!io) return;
     const socketId = userSockets.get(userId.toString());
     if (socketId) {
       io.to(socketId).emit('notification', { message, ...data });
